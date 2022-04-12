@@ -91,7 +91,9 @@ RUN pip3 install \
     scikit-learn \
     gdown \
     seaborn \
-    tensorflow==1.15
+    h5py==2.10.0 \
+    tensorflow==1.15 \
+    keras==2.3.1 
 
 ##################################### setting ###################################################
 RUN chown -R ${USER}:${USER} ${HOME}/
