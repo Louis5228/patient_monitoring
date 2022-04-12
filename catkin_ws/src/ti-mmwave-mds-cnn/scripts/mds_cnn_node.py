@@ -1,14 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Author: Leo Zhang
 
 import rospy
 import numpy as np
 import tensorflow as tf
 from keras.models import model_from_json
-from keras.models import load_model
+from tensorflow.python.keras.backend import set_session
+from tensorflow.python.keras.models import load_model
+# from keras.models import load_model
 import os
 import math
-from micro_doppler_pkg.msg import MicroDoppler_m
+from micro_doppler_pkg.msg import MicroDoppler
 from mds_cnn_node_pkg.msg import MDSPred
 from mds_dict import mds_dict
 import socket
@@ -18,11 +20,13 @@ from std_msgs.msg import String
 class mds_cnn_node:
     def __init__(self):
         self.frame_id = 'mds_pred'
-        self.directory = '/home/ece561/FJ/patient_monitoring/ti_ros/src/ti-mmwave-mds-cnn/scripts/output/'#'./output/'
+        self.directory = '/home/argnctu/patient_monitoring/catkin_ws/src/ti-mmwave-mds-cnn/model/'#'./output/'
         
+        self.graph = tf.get_default_graph()
+        self.sess = tf.Session()
+        set_session(self.sess)
         self.loaded_model = load_model(self.directory+'mds_cnn_model.h5')
         self.loaded_model._make_predict_function()
-        self.graph = tf.get_default_graph()
 
         self.nd = 128
         self.time_domain_bins = 20
@@ -33,7 +37,7 @@ class mds_cnn_node:
         #self.serversocket  = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         rospy.init_node('mds_cnn_node')
-        self.sub_ = rospy.Subscriber('/ti_mmwave/micro_doppler', MicroDoppler_m, self.mds_predictor)
+        self.sub_ = rospy.Subscriber('/ti_mmwave/micro_doppler', MicroDoppler, self.mds_predictor)
         self.pub_ = rospy.Publisher('/ti_mmwave/mds_pred', MDSPred, queue_size=100)
         self.sevaPublisher = rospy.Publisher('/seva', String, queue_size=100)
         rospy.spin()
@@ -53,6 +57,7 @@ class mds_cnn_node:
         test_data = tmp.reshape(-1, self.nd, self.time_domain_bins, 1)
 
         with self.graph.as_default():
+            set_session(self.sess)
             self.pred = self.loaded_model.predict(test_data)
             
         cur_state = self.pred_state()
@@ -62,13 +67,13 @@ class mds_cnn_node:
         mds_pred_msg.mds_pred_array = self.pred.flatten().tolist()
         mds_pred_msg.prediction = cur_state
         mds_pred_msg.target_idx = mds.target_idx
-        mds_pred_msg.posX = mds.posX
-        mds_pred_msg.posY = mds.posY
-        mds_pred_msg.velX = mds.velX
-        mds_pred_msg.velY = mds.velY
+        # mds_pred_msg.posX = mds.posX
+        # mds_pred_msg.posY = mds.posY
+        # mds_pred_msg.velX = mds.velX
+        # mds_pred_msg.velY = mds.velY
         self.pub_.publish(mds_pred_msg)
 
-        self.sevaPublisher.publish(cur_state + str(' X: ')+ str(mds.posX) + str(' Y: ') + str(mds.posY))
+        # self.sevaPublisher.publish(cur_state + str(' X: ')+ str(mds.posX) + str(' Y: ') + str(mds.posY))
 
 if __name__ == '__main__':
     mds_cnn_node().main()
